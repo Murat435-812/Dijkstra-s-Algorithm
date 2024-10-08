@@ -1,0 +1,266 @@
+import copy
+import heapq
+import random
+import sys, pygame
+import pandas as pd
+import os
+from pygame.locals import*
+pygame.font.init()
+
+font = pygame.font.Font(None, 36)
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GREEN = (0, 255, 0)
+RED = (255, 0, 0)
+screen_color = (255, 255, 255)
+
+n = 40
+m = 80
+sq = 15
+matrix = [[random.randint(1,5) for _ in range(m)] for _ in range(n)]
+matrix_dict = {(i,j) : matrix[i][j] for i in range(n) for j in range(m)}
+width = m * sq
+height = n * sq
+
+
+def save_matrix_to_excel(matrix, directory="D:\\Weights", filename="matrix_output.xlsx"):
+    matrix_output = os.path.join(directory, filename)
+
+    df = pd.DataFrame(matrix)
+
+    if os.path.exists(matrix_output):
+        os.remove(matrix_output)
+
+    df.to_excel(matrix_output, index=False)
+
+    print(f"Matrix successfully saved to: {matrix_output}")
+
+
+def animationButton(screen,button_rect,isActive):
+    if isActive:
+        txt = 'Animation Active'
+    else:
+        txt = 'Animation Inactive'
+
+    button_text = font.render(txt, True, WHITE)
+    text_rect = button_text.get_rect(center=button_rect.center)
+    pygame.draw.rect(screen, (100, 20, 150), button_rect)
+    screen.blit(button_text, text_rect)
+
+def startButton(screen,button_rect):
+    button_text = font.render("Start", True, WHITE)
+    text_rect = button_text.get_rect(center=button_rect.center)
+    pygame.draw.rect(screen, (60, 20, 150), button_rect)
+    screen.blit(button_text, text_rect)
+
+def restartButton(screen,button_rect):
+    button_text = font.render("Restart", True, WHITE)
+    text_rect = button_text.get_rect(center=button_rect.center)
+    pygame.draw.rect(screen, (60, 20, 150), button_rect)
+    screen.blit(button_text, text_rect)
+
+
+def toExcelButton(screen,button_rect):
+    button_text = font.render("Weight to Excel", True, WHITE)
+    text_rect = button_text.get_rect(center=button_rect.center)
+    pygame.draw.rect(screen, (60, 20, 150), button_rect)
+    screen.blit(button_text, text_rect)
+
+
+def isValidNode(matrix,n,m,i,j):
+    temp = []
+    if i-1 >= 0 and matrix[i-1][j] > 0:
+        temp.append((matrix[i-1][j], (i-1,j)))
+    if i+1 < n and matrix[i+1][j] > 0:
+        temp.append((matrix[i+1][j], (i+1,j)))
+    if j-1 >= 0 and matrix[i][j-1] > 0:
+        temp.append((matrix[i][j-1], (i,j-1)))
+    if j+1 <m and matrix[i][j+1] > 0:
+        temp.append((matrix[i][j+1], (i,j+1)))
+    return temp
+
+
+def findNeighbors(matrix):
+    n ,m= len(matrix), len(matrix[0])
+    neighbors = {}
+    for i in range(n):
+        for j in range(m):
+            neighbors[(i,j)] = isValidNode(matrix,n,m,i,j)
+    return neighbors
+
+
+def findPath(parent,node):
+    result = []
+    while node:
+        result.append(node)
+        node = parent[node]
+    return result
+
+def drawLines(screen,width,height,square,n,m):
+    tickness = 1
+    lcolor = (3, 109, 93)
+    for i in range(n):
+        pygame.draw.line(screen, lcolor, (0, i*square ), (width, i*square),tickness)
+    for i in range(m):
+        pygame.draw.line(screen, lcolor, (i*square, 0), (i*square, height),tickness)
+
+def paintVisitedNodes(screen,visitied,sq):
+    for vis in visitied:
+        pygame.draw.rect(screen, (0, 255, 0), pygame.Rect(vis[1] *sq , vis[0] * sq,sq,sq))
+
+def paintNodesInStack(screen,stack,sq):
+    for vis in stack:
+        vis = vis[1]
+        pygame.draw.rect(screen, (100,20,150), pygame.Rect(vis[1] *sq , vis[0] * sq,sq,sq))
+
+def drawPath(screen,path):
+    for vis in path:
+        pygame.draw.rect(screen, (0, 0, 150), pygame.Rect(vis[1] *sq , vis[0] * sq,sq,sq))
+
+def drawBlocks(screen,blocks):
+    for block in blocks:
+        pygame.draw.rect(screen, (0, 0, 0), pygame.Rect(block[1] * sq, block[0] * sq, sq, sq))
+
+def dijkstras(source,adjacency,visited,distances,parents):
+    stack = []
+
+    heapq.heappush(stack,(0,source))
+
+    while stack:
+        popped = heapq.heappop(stack)
+        weight, node = popped[0], popped[1]
+        for nd in adjacency[node]:
+            if nd[1] not in visited:
+                visited.add(nd[1])
+                if distances[nd[1]] > weight + nd[0]:
+                    distances[nd[1]] = weight + nd[0]
+                    parents[nd[1]] = node
+                heapq.heappush(stack,(weight + nd[0], nd[1]))
+    return parents
+
+def reset_variables(matrix,source,isAnimationActive=True):
+    n, m = len(matrix), len(matrix[0])
+    visited = set()
+    distances = {(i,j) : float('inf') for i in range(n) for j in range(m)}
+    parents = {(i,j) : None for i in range(n) for j in range(m)}
+    distances[source] = 0
+    blocks = set()
+    stack = []
+    heapq.heappush(stack, (0, source))
+    foundPath = []
+    isFound = False
+    showOrNot = isAnimationActive
+    start = False
+    matrix = [[random.randint(1, 5) for _ in range(m)] for _ in range(n)]
+    visited.add(source)
+
+    return  blocks,visited, distances, parents, stack, foundPath, isFound, showOrNot, start,matrix
+
+def changeSourcePoints(matrix,source,isAnimationActive=True):
+    n, m = len(matrix), len(matrix[0])
+    visited = set()
+    distances = {(i,j) : float('inf') for i in range(n) for j in range(m)}
+    parents = {(i,j) : None for i in range(n) for j in range(m)}
+    distances[source] = 0
+    stack = []
+    heapq.heappush(stack, (0, source))
+    foundPath = []
+    isFound = False
+    showOrNot = isAnimationActive
+    start = False
+    visited.add(source)
+
+    return  visited, distances, parents, stack, foundPath, isFound, showOrNot, start,matrix
+
+
+def main(matrix,isAnimationActive = True):
+    source = (n // 2, m // 2)
+    blocks , visited, distances, parents, stack, foundPath, isFound, showOrNot, start,matrix = reset_variables(matrix,source, isAnimationActive)
+    screen = pygame.display.set_mode((width, height + 200))
+    button_rect_animation = pygame.Rect(50, height + 100 - 30, 250, 60)
+    button_rect_restart = pygame.Rect(340, height + 100 - 30, 250, 60)
+    button_rect_to_excel = pygame.Rect(620, height + 100 - 30, 250, 60)
+    button_rect_start = pygame.Rect(910, height + 100 - 30, 250, 60)
+
+
+    while True:
+        for events in pygame.event.get():
+            if events.type == QUIT:
+                sys.exit(0)
+            if events.type == pygame.MOUSEBUTTONDOWN and not stack:  # Mouse'a tıklanma olayı
+                mouse_pos = pygame.mouse.get_pos()
+                if mouse_pos[1] < height and mouse_pos[0] < width and mouse_pos[1] > 0 and mouse_pos[0] > 0:
+                    target_r, target_c = mouse_pos[1] // sq , mouse_pos[0] // sq
+                    foundPath = findPath (parents,(target_r,target_c))
+
+            if events.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()  # Mouse konumunu al
+                if button_rect_animation.collidepoint(mouse_pos):
+                    showOrNot = not showOrNot
+                if button_rect_start.collidepoint(mouse_pos):
+                    adjacency = findNeighbors(matrix)
+                    start = True
+                if button_rect_restart.collidepoint(mouse_pos):
+                    distances[source] = float('inf')
+                    stack.clear()
+                    blocks ,visited, distances, parents, stack, foundPath, isFound, showOrNot, start,matrix = reset_variables(matrix,source, isAnimationActive)
+                    blocks.clear()
+                if button_rect_to_excel.collidepoint(mouse_pos):
+                    save_matrix_to_excel(matrix)
+
+            mouse_pressed = pygame.mouse.get_pressed()
+            mouse_pos = pygame.mouse.get_pos()
+            if mouse_pressed[0] and  mouse_pos[1] < height and mouse_pos[0] < width and not isFound and mouse_pos[1] > 0 and mouse_pos[0] > 0:
+                mouse_x, mouse_y = mouse_pos[1] // sq , mouse_pos[0] // sq
+                matrix[mouse_x][mouse_y] = -100
+                blocks.add((mouse_x,mouse_y))
+            if mouse_pressed[2] and  mouse_pos[1] < height and mouse_pos[0] < width and mouse_pos[1] > 0 and mouse_pos[0] > 0 and not isFound and len(stack) < 2:
+                mouse_x, mouse_y = mouse_pos[1] // sq , mouse_pos[0] // sq
+                matrix[mouse_x][mouse_y] = matrix_dict[(mouse_x,mouse_y)]
+                if (mouse_x,mouse_y) in blocks:
+                    blocks.remove((mouse_x,mouse_y))
+
+            if mouse_pressed[1] and  mouse_pos[1] < height and mouse_pos[0] < width and not start and mouse_pos[1] > 0 and mouse_pos[0] > 0:
+                mouse_x, mouse_y = mouse_pos[1] // sq , mouse_pos[0] // sq
+                source = (mouse_x,mouse_y)
+                visited, distances, parents, stack, foundPath, isFound, showOrNot, start, matrix = changeSourcePoints(matrix, source, isAnimationActive)
+
+        if stack and start and showOrNot:
+            popped = heapq.heappop(stack)
+            weight, node = popped[0], popped[1]
+            for nd in adjacency[node]:
+                if nd[1] not in visited:
+                    visited.add(nd[1])
+                    if distances[nd[1]] > weight + nd[0]:
+                        distances[nd[1]] = weight + nd[0]
+                        parents[nd[1]] = node
+                    heapq.heappush(stack, (weight + nd[0], nd[1]))
+
+        if stack and start and not showOrNot and not isFound:
+            dijkstras(source,adjacency,visited,distances,parents)
+            stack.clear()
+            isFound = True
+
+        if start and not stack:
+            isFound = True
+
+        screen.fill(screen_color)
+        drawBlocks(screen,blocks)
+        paintVisitedNodes(screen,visited,sq)
+        paintNodesInStack(screen,stack,sq)
+        drawLines(screen,width,height,sq,n,m)
+
+        if not stack:
+            drawPath(screen,foundPath)
+        pygame.draw.rect(screen, (26,22,245), pygame.Rect(source[1] *sq , source[0] * sq,sq,sq))
+        if foundPath:
+            pygame.draw.rect(screen, (255,0,0), pygame.Rect(target_c *sq , target_r * sq,sq,sq))
+
+
+        animationButton(screen,button_rect_animation,showOrNot)
+        startButton(screen,button_rect_start)
+        restartButton(screen,button_rect_restart)
+        toExcelButton(screen,button_rect_to_excel)
+        pygame.display.flip()
+
+main(matrix,False)

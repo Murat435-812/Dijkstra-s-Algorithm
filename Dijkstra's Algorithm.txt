@@ -1,0 +1,106 @@
+import heapq
+import random
+
+# Ekran rengi beyaz olarak ayarlandı
+screen_color = (255, 255, 255)
+
+# Matris boyutları tanımlandı
+n = 60
+m = 30
+
+# Rastgele değerler içeren bir matris oluşturuldu
+matrix = [[random.randint(1, 10 ** 3) for _ in range(n)] for _ in range(m)]
+
+
+def isValidNode(matrix, n, m, i, j):
+    # Geçerli bir düğüm olup olmadığını kontrol eden fonksiyon
+    temp = []
+
+    # Yukarıdaki düğüm kontrolü
+    if i - 1 >= 0:
+        temp.append((matrix[i - 1][j], (i - 1, j)))  # Yukarıdaki düğümün ağırlığını ve koordinatını ekle
+
+    # Aşağıdaki düğüm kontrolü
+    if i + 1 < n:
+        temp.append((matrix[i + 1][j], (i + 1, j)))  # Aşağıdaki düğümün ağırlığını ve koordinatını ekle
+
+    # Soldaki düğüm kontrolü
+    if j - 1 >= 0:
+        temp.append((matrix[i][j - 1], (i, j - 1)))  # Soldaki düğümün ağırlığını ve koordinatını ekle
+
+    # Sağdaki düğüm kontrolü
+    if j + 1 < m:
+        temp.append((matrix[i][j + 1], (i, j + 1)))  # Sağdaki düğümün ağırlığını ve koordinatını ekle
+
+    return temp  # Geçerli komşu düğümleri döndür
+
+
+def findNeighbors(matrix):
+    # Matrisin boyutlarını al
+    n, m = len(matrix), len(matrix[0])
+    neighbors = {}
+
+    # Her düğüm için komşularını bul
+    for i in range(n):
+        for j in range(m):
+            neighbors[(i, j)] = isValidNode(matrix, n, m, i, j)  # Düğümün komşularını ekle
+
+    return neighbors  # Tüm komşuları döndür
+
+
+def findPath(parent, node):
+    # Verilen düğümden başlayarak yol bulma fonksiyonu
+    while node:
+        print(node, end='->')  # Düğümü yazdır
+        node = parent[node]  # Üst düğüme geç
+
+
+def dijkstras(matrix, source):
+    # Ziyaret edilen düğümleri tutmak için bir küme
+    visited = set()
+
+    # Matris boyutlarını al
+    n, m = len(matrix), len(matrix[0])
+
+    # Düğümlerin komşularını bul
+    adjacency = findNeighbors(matrix)
+
+    # Başlangıçta tüm düğümlerin mesafelerini sonsuz olarak ayarla
+    distances = {(i, j): float('inf') for i in range(n) for j in range(m)}
+    parents = {(i, j): None for i in range(n) for j in range(m)}  # Düğümün ebeveynini tut
+
+    distances[source] = 0  # Kaynak düğümün mesafesi 0 olarak ayarlandı
+    visited.add(source)  # Kaynak düğüm ziyaret edildi
+
+    stack = []  # Düğümleri tutacak bir yığın
+
+    # Kaynak düğüm ve mesafesini yığına ekle
+    heapq.heappush(stack, (0, source))
+
+    while stack:
+        # Yığın boşalana kadar en üstteki düğümü çıkar
+        popped = heapq.heappop(stack)
+        weight, node = popped[0], popped[1]  # Ağırlığı ve düğümü ayır
+
+        for nd in adjacency[node]:  # Düğümün komşularını kontrol et
+            if nd[1] not in visited:  # Komşu düğüm henüz ziyaret edilmediyse
+                visited.add(nd[1])  # Komşu düğümü ziyaret et
+                # Yeni hesaplanan mesafe mevcut mesafeden daha küçükse
+                if distances[nd[1]] > weight + nd[0]:
+                    distances[nd[1]] = weight + nd[0]  # Mesafeyi güncelle
+                    parents[nd[1]] = node  # Ebeveyni ayarla
+                # Yeni mesafeyi yığına ekle
+                heapq.heappush(stack, (weight + nd[0], nd[1]))
+
+    # Belirli bir düğümden (10,10) yola ulaşmaya çalış
+    print(findPath(parents, (10, 10)))
+
+
+# Dijkstra algoritmasını başlangıç noktası (58, 25) ile çalıştır
+#source parametresini girerken ilk değer sütun ikinci değer satır değerini almaktadır.
+#yaani ilk değer tanımlı m değerinden ikinci değer tanımlı n değerinden küçük olmalıdır (satır 8 , 9)
+
+for i in range(m):
+    for j in range(n):
+        print((i,j),end='    ->      ')
+        dijkstras(matrix, (i,j))
